@@ -14,19 +14,18 @@ function SelectDifficulty(props) {
 
 function NewGame(props) {
   return (
-    <button onClick={props.onClick}>
-      New Game
-    </button>
+    <button onClick={props.onClick} className={props.className}></button>
   )
 }
 
 function Square(props) {
 
     return (
-      <button 
+      <button
+        value = {props.value}
         className={props.className}
         onClick={props.onClick}
-        onDoubleClick={props.onDoubleClick}
+        onContextMenu={(event) => props.onContextMenu(event)}
       >
         {props.value}
       </button>
@@ -43,7 +42,7 @@ class Board extends React.Component {
         key={indices}
     	  value={this.props.squares[indices[0]][indices[1]].value}
     	  onClick={() => this.props.onClick(i)}
-        onDoubleClick={() => this.props.onDoubleClick(i)}
+        onContextMenu={(event) => this.props.onContextMenu(event,i)}
         className={this.props.squares[indices[0]][indices[1]].className}
     	/>);
   }
@@ -77,6 +76,10 @@ class Game extends React.Component {
     }
 
 		this.state = {
+      difficulty: "beginner",
+      time: 0,
+      timerOn: false,
+      timerStart: 0,
       move: 0,
       height: this.boardSize.beginner[0],
       width: this.boardSize.beginner[1],
@@ -89,8 +92,10 @@ class Game extends React.Component {
 
     this.convert1Dto2D = this.convert1Dto2D.bind(this);
     this.convert2Dto1D = this.convert2Dto1D.bind(this);
+    this.startTimer = this.startTimer.bind(this);
+    this.stoptimer = this.stopTimer.bind(this);
     this.handleClick = this.handleClick.bind(this);
-    this.handleDoubleClick = this.handleDoubleClick.bind(this);
+    this.handleContextMenu = this.handleContextMenu.bind(this);
     this.handleDifficultyChange = this.handleDifficultyChange.bind(this);
     this.handleNewGameClick = this.handleNewGameClick.bind(this);
 	  this.initializeBoard = this.initializeBoard.bind(this);
@@ -100,6 +105,7 @@ class Game extends React.Component {
     this.clearSurrounding = this.clearSurrounding.bind(this);
     this.revealEmpty = this.revealEmpty.bind(this);
     this.checkSquaresRemaining = this.checkSquaresRemaining.bind(this);
+    this.revealAllMines = this.revealAllMines.bind(this);
   }
 
   convert1Dto2D(index){
@@ -108,6 +114,24 @@ class Game extends React.Component {
 
   convert2Dto1D(indices){
     return this.state.width*indices[0] + indices[1];
+  }
+
+  startTimer(){
+    this.setState({
+      time: this.state.time,
+      timerOn: true,
+      timerStart: Date.now() - this.state.time,
+    });
+    this.timer = setInterval(() => this.setState({
+      time: Math.floor((Date.now() - this.state.timerStart)/1000),
+    }),1000);
+  }
+
+  stopTimer() {
+    this.setState({
+      timerOn: false,
+    });
+    clearInterval(this.timer);
   }
 
 	handleClick(i) {
@@ -130,6 +154,7 @@ class Game extends React.Component {
     if(move === 0) {
       const mines = this.randomizeMines(this.state.height, this.state.width, [indices[0], indices[1]])
       this.setBoard(mines);
+      this.startTimer();
     }
     squares[indices[0]][indices[1]].className = "square revealed";
     move++;
@@ -142,22 +167,28 @@ class Game extends React.Component {
     });
 
     if(squares[indices[0]][indices[1]].value === "M") {
+      this.stoptimer();
       this.setState({
         gameOver: true,
       })
+      this.revealAllMines();
       return;
     }
 
     const totalSquares = this.state.height*this.state.width - this.state.numMines;
     const squaresRevealed = this.checkSquaresRemaining();
     const gameOver = (totalSquares === squaresRevealed ? true : this.state.gameOver)
+    if(gameOver){
+      this.stopTimer();
+    }
     this.setState({
       squaresRemaining: totalSquares - squaresRevealed,
       gameOver: gameOver
     });
   }
 
-  handleDoubleClick(i) {
+  handleContextMenu(event, i) {
+    event.preventDefault();
     const indices = this.convert1Dto2D(i);
     const squares = this.state.squares.slice();
     let minesRemaining = this.state.minesRemaining;
@@ -187,7 +218,10 @@ class Game extends React.Component {
 
   handleDifficultyChange(event) {
     let settings = this.boardSize[event.target.value];
+    this.stopTimer();
     this.setState({
+      difficulty: event.target.value,
+      time: 0,
       move: 0,
       height: settings[0],
       width: settings[1],
@@ -200,7 +234,9 @@ class Game extends React.Component {
   }
 
   handleNewGameClick(event) {
+    this.stopTimer();
     this.setState({
+      time: 0,
       move: 0,
       squares: this.initializeBoard(this.state.height, this.state.width),
       gameOver: false,
@@ -340,41 +376,54 @@ class Game extends React.Component {
     return revealedCount;
   }
 
+  revealAllMines(){
+    const squares = this.state.squares.slice();
+    for(let i = 0; i < this.state.height; i++){
+      for(let j = 0; j < this.state.width; j++){
+        if(squares[i][j].value === "M" && !squares[i][j].flagged){
+          squares[i][j].className += " exploded"
+        }
+      }
+    }
+    this.setState({
+      squares: squares,
+    })
+  }
+
   handleSolveClick(){
 
   }
 
   render() {
-  	const squares = this.state.squares.slice();
-    let timer = 0;
-    let delay = 200;
-    let prevent = false;
+    let smileButton;
+    if (this.state.gameOver && this.state.squaresRemaining === 0){
+      smileButton = "smiley victory";
+    } else if (this.state.gameOver) {
+      smileButton = "smiley loss";
+    } else {
+      smileButton = "smiley"
+    }
 
     return (
       <div className="game">
-        <div className="game-board">
+        <div className={"around-board " + this.state.difficulty}>
+          <p>{"Time elapsed: " + this.state.time}</p>
           <SelectDifficulty onChange={this.handleDifficultyChange}/>
-          <Board
-          	squares = {squares}
-          	onClick = {(i) => {
-              timer = setTimeout(() => {
-                if (!prevent) {
-                  this.handleClick(i);
-                }
-                prevent = false;
-              }, delay);
-            }}
-            onDoubleClick = {(i) => {
-              clearTimeout(timer);
-              prevent = true;
-              this.handleDoubleClick(i);
-            }}
-            height = {this.state.height}
-            width = {this.state.width}
-            numMines = {this.state.numMines}
-            convert1Dto2D = {this.convert1Dto2D}
-          />
-          <NewGame onClick={this.handleNewGameClick}/>
+          <div>
+            <NewGame onClick={this.handleNewGameClick}
+              className={smileButton}/>
+          </div>
+          <div className = "game-board">
+            <Board
+            	squares = {this.state.squares}
+            	onClick = {(i) =>  this.handleClick(i)}
+              onContextMenu = {(event, i) => this.handleContextMenu(event, i)}
+              height = {this.state.height}
+              width = {this.state.width}
+              numMines = {this.state.numMines}
+              convert1Dto2D = {this.convert1Dto2D}
+            />
+          </div>
           <p>
             {this.state.squaresRemaining === 0 ? "Great Job!!" : 
               (this.state.gameOver ? "You Lose :(" : "Mines Remaining: " + this.state.minesRemaining)}

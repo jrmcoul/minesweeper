@@ -1,6 +1,7 @@
 body {
   font: 14px "Century Gothic", Futura, sans-serif;
   margin: 20px;
+  background: #FFF;
 }
 
 ol, ul {
@@ -17,9 +18,72 @@ ol, ul {
   margin-bottom: 10px;
 }
 
+.game {
+  display: flex;
+  flex-direction: row;
+}
+
+.game-info {
+  margin-left: 20px;
+}
+
+.around-board{
+  background: #BBB;
+  border: 2px solid #888;
+  margin: auto;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  display: inline-block;
+}
+
+.beginner {
+  min-width: 100px;
+}
+
+.intermediate {
+  min-width: 200px;
+}
+
+.expert {
+  min-width: 575px;
+}
+
+.game-board {
+  border: 2px solid #888;
+  margin: auto;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  display: inline-block;
+}
+
+.smiley {
+  background-image: url("https://raw.githubusercontent.com/strahlistvan/minesweeper/devjs/Images/smile.png");
+  background-size: 100%;
+  height: 30px;
+  width: 30px;
+  font-size: 0px;
+  outline: none;
+  border: 1px solid #888;
+}
+
+.victory {
+  background-image: url("https://ih1.redbubble.net/image.309326991.0294/flat,1000x1000,075,f.u1.jpg");
+}
+
+.loss {
+  background-image: url("https://ih0.redbubble.net/image.395422632.9241/st%2Csmall%2C215x235-pad%2C210x230%2Cf8f8f8.lite-1u1.jpg");
+  border: 2px solid #888;
+}
+
 .square {
-  background: #888;
-  border: 1px solid #999;
+  background: #BBB;
+  border-width: 2.5px;
+  border-style: solid;
+  border-color: #FFF #666 #666 #FFF;
   float: left;
   font-size: 0px;
   font-weight: bold;
@@ -33,12 +97,53 @@ ol, ul {
 }
 
 .revealed {
-  background: #fff;
+  background: #BBB;
+  border: 1px solid #888;
   font-size: 10px;
 }
 
+.exploded {
+  font-size: 10px;
+  background-image: url("https://static-s.aa-cdn.net/img/ios/1168282474/a56bd269f247d1b7cca22b0f0e912eef?v=1");
+  background-size: 100%;
+  border: 0px;
+}
+
 .flagged {
-  background: coral;
+  background: url("https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Minesweeper_flag.svg/1024px-Minesweeper_flag.svg.png");
+  background-size: 100%;
+  border: 0px;
+}
+
+button[value="1"]{
+  color: blue;
+}
+button[value="2"]{
+  color: green;
+}
+button[value="3"]{
+  color: red;
+}
+button[value="4"]{
+  color: darkblue;
+}
+button[value="5"]{
+  color: maroon;
+}
+button[value="6"]{
+  color: turquoise;
+}
+button[value="7"]{
+  color: black;
+}
+button[value="8"]{
+  color: gray;
+}
+
+.revealed[value="M"]{
+  background-image: url("https://static-s.aa-cdn.net/img/ios/1168282474/a56bd269f247d1b7cca22b0f0e912eef?v=1");
+  background-size: 100%;
+  opacity: 0.25;
 }
 
 .square:focus {
@@ -49,11 +154,5 @@ ol, ul {
   background: #ddd;
 }
 
-.game {
-  display: flex;
-  flex-direction: row;
-}
 
-.game-info {
-  margin-left: 20px;
-}
+
