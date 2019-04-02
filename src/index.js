@@ -95,6 +95,7 @@ class Game extends React.Component {
       minesRemaining: this.boardSize.beginner[2],
       squaresRemaining: this.boardSize.beginner[0]*this.boardSize.beginner[1] - this.boardSize.beginner[2],
 		  border: [],
+      loss: false,
     };
 
     this.convert1Dto2D = this.convert1Dto2D.bind(this);
@@ -110,12 +111,10 @@ class Game extends React.Component {
     this.setBoard = this.setBoard.bind(this);
     this.checkSurrounding = this.checkSurrounding.bind(this);
     this.clearSurrounding = this.clearSurrounding.bind(this);
-    this.revealEmpty = this.revealEmpty.bind(this);
-    this.checkSquaresRemaining = this.checkSquaresRemaining.bind(this);
     this.revealAllMines = this.revealAllMines.bind(this);
     this.winLoss = this.winLoss.bind(this);
     this.isBorder = this.isBorder.bind(this);
-    this.cullBorder = this.cullBorder.bind(this);
+    this.findBorder = this.findBorder.bind(this);
   }
 
   convert1Dto2D(index){
@@ -144,10 +143,10 @@ class Game extends React.Component {
     clearInterval(this.timer);
   }
 
-	handleClick(i, isFirstClick) {
+	handleClick(i) {
     const indices = this.convert1Dto2D(i);
-  	const squares = this.state.squares.slice();
-
+  	let squares = this.state.squares.slice();
+    let move = this.state.move;
 
     // Doesn't allow click of flagged square or when game is over 
   	if(squares[indices[0]][indices[1]].flagged || this.state.gameOver){
@@ -155,7 +154,7 @@ class Game extends React.Component {
   	}
 
     // Initializing game on first move
-    if(this.state.move === 0) {
+    if(move === 0) {
       const mines = this.randomizeMines(this.state.height, this.state.width, [indices[0], indices[1]])
       this.setBoard(mines);
       this.startTimer();
@@ -166,35 +165,54 @@ class Game extends React.Component {
 
       squares[indices[0]][indices[1]].className = "square revealed";
       const totalSquares = this.state.height*this.state.width - this.state.numMines;
-      const squaresRevealed = this.checkSquaresRemaining(squares);
-      const borderInd = (this.isBorder(indices[0],indices[1])) ? [indices] : null;
+      move += 1;
 
-      this.setState((state,props) => ({
-        move: state.move + 1,
+      if(squares[indices[0]][indices[1]].value === null) {
+        const tempObj = this.clearSurrounding(indices[0], indices[1], squares, move);
+        move = tempObj.move;
+        squares = tempObj.squares;
+      }
+
+      this.setState({
+        move: move,
         squares: squares,
-        border: state.border.concat([borderInd]),
-        squaresRemaining: totalSquares - squaresRevealed,
-      }), () => {
-        if(squares[indices[0]][indices[1]].value === null) {
-          this.revealEmpty(indices);
-        }
-        this.winLoss(indices);
-        if(isFirstClick){
-          console.log(this.state.border);
+        squaresRemaining: totalSquares - move,
+      }, () => {
 
-          this.setState({
-            border: this.cullBorder(this.state.border),
-          });
-        }
+        this.winLoss();
+        let borderSquares = this.findBorder();
+        this.setState({
+          border: borderSquares,
+        });
+
       });
 
     }
     // If user clicks on revealed square that is surrounded by square.value flags
     else if(squares[indices[0]][indices[1]].className === "square revealed" && 
-        squares[indices[0]][indices[1]].value !== null) {
-      if(squares[indices[0]][indices[1]].value === this.checkSurrounding(indices[0],indices[1],true)){
-        this.clearSurrounding(indices[0],indices[1]);
-      }
+      squares[indices[0]][indices[1]].value !== null && 
+      squares[indices[0]][indices[1]].value === this.checkSurrounding(indices[0],indices[1],true)){
+
+      const totalSquares = this.state.height*this.state.width - this.state.numMines;
+      const tempObj = this.clearSurrounding(indices[0], indices[1], squares, move);
+
+      move = tempObj.move;
+      squares = tempObj.squares;
+
+      this.setState({
+        move: move,
+        squares: squares,
+        squaresRemaining: totalSquares - move,
+      }, () => {
+
+        this.winLoss();
+        let borderSquares = this.findBorder();
+        this.setState({
+          border: borderSquares,
+        });
+
+      });
+
     }
 
   }
@@ -203,7 +221,7 @@ class Game extends React.Component {
     event.preventDefault();
     const indices = this.convert1Dto2D(i);
     const squares = this.state.squares.slice();
-    let minesRemaining = this.state.minesRemaining;
+    let minesRemaining = this.state.minesRemaining
 
     if(squares[indices[0]][indices[1]].className === "square revealed" || this.state.gameOver){
       return;
@@ -222,6 +240,13 @@ class Game extends React.Component {
     this.setState({
       squares: squares,
       minesRemaining: minesRemaining,
+    }, () => {
+
+      let borderSquares = this.findBorder();
+      this.setState({
+        border: borderSquares,
+      });
+      
     });
   }
 
@@ -242,6 +267,7 @@ class Game extends React.Component {
       minesRemaining: settings[2],
       squaresRemaining: settings[0]*settings[1] - settings[2],
       border: [],
+      loss: false,
     });
   }
 
@@ -257,6 +283,7 @@ class Game extends React.Component {
       minesRemaining: this.state.numMines,
       squaresRemaining: this.state.height*this.state.width - this.state.numMines,
       border: [],
+      loss: false,
     });
   }
 
@@ -356,50 +383,29 @@ class Game extends React.Component {
     return mineCount;
   }
 
-  // When the user clicks on a square surrounded by square.value flags,
-  // this clicks the remaining unrevealed squares
-  clearSurrounding(row,col) {
-    const squares = this.state.squares.slice();
+  // This reveals all non-flag squares around the center square. Calls this
+  // again, recursively, if an empty square is encountered. 
+  clearSurrounding(row, col, squares, move) {
+    let resultObj = {};
+    resultObj.squares = squares;
+    resultObj.move = move;
     for(let i = row - 1; i <=  row + 1; i++) {
       for(let j = col - 1; j <= col + 1; j++) {
         if(i >= 0 && i < this.state.height &&
           j >= 0 && j < this.state.width &&
-          squares[i][j].className === "square"){
-          this.handleClick(this.convert2Dto1D([i,j]),false)
+          resultObj.squares[i][j].className === "square" &&
+          !resultObj.squares[i][j].flagged) {
+
+          resultObj.squares[i][j].className = "square revealed";
+          resultObj.move += 1;
+          if(resultObj.squares[i][j].value === null) {
+            resultObj = this.clearSurrounding(i, j, resultObj.squares, resultObj.move);
+          }
+
         }
       }
     }
-
-    this.setState({
-      squares: squares,
-    })
-  }
-
-  // When the user clicks on an empty square, this clicks all surrounding squares
-  revealEmpty(indices){
-    const squares = this.state.squares.slice();
-    for(let i = indices[0] - 1; i <= indices[0] + 1; i++){
-      for(let j = indices[1] - 1; j <= indices[1] + 1; j++){
-        if(i >= 0 && i < this.state.height &&
-          j >= 0 && j < this.state.width &&
-          squares[i][j].className === "square"){
-          this.handleClick(this.convert2Dto1D([i,j]),false)
-        }
-      }
-    }
-  }
-
-  // This checks for and returns the number of remaining squares to reveal
-  checkSquaresRemaining(squares){
-    let revealedCount = 0;
-    for(let i = 0; i < this.state.height; i++){
-      for(let j = 0; j < this.state.width; j++){
-        if(squares[i][j].className === "square revealed"){
-          revealedCount++;
-        }
-      }
-    }
-    return revealedCount;
+    return resultObj;
   }
 
   // Upon losing the game, this reveals all remaining mines by adding " exploded"
@@ -418,15 +424,22 @@ class Game extends React.Component {
     })
   }
 
-  winLoss(indices) {
+  // Computed after every move to determine if the game was won or lost
+  winLoss() {
     // In case of loss
-    if(this.state.squares[indices[0]][indices[1]].value === "M") {
-      this.stoptimer();
-      this.setState({
-        gameOver: true,
-      })
-      this.revealAllMines();
-      return;
+    const squares = this.state.squares.slice();
+    for(let i = 0; i < this.state.height; i++){
+      for(let j = 0; j < this.state.width; j++){
+        if(squares[i][j].value === "M" && squares[i][j].className === "square revealed"){
+          this.stoptimer();
+          this.setState({
+            gameOver: true,
+            loss: true,
+          });
+          this.revealAllMines();
+          return;
+        }
+      }
     }
 
     // In case of win
@@ -462,17 +475,16 @@ class Game extends React.Component {
     return false;
   }
 
-  cullBorder(arr) {
+  findBorder() {
+    const squares = this.state.squares.slice();
     let resultArr = [];
-    console.log(arr);
-    for(let i = 0; i < arr.length; i++) {
-      // console.log(arr[i]);
-      // console.log(this.isBorder(arr[i][0],arr[i][1]));
-      if(this.isBorder(arr[i][0],arr[i][1])) {
-        resultArr.push(arr[i]);
+    for(let i = 0; i < this.state.height; i++) {
+      for(let j = 0; j < this.state.width; j++) {
+        if(squares[i][j].className === "square revealed" && this.isBorder(i,j)) {
+          resultArr.push([i,j]);
+        }
       }
     }
-    console.log(resultArr);
     return resultArr;
   }
 
@@ -482,7 +494,7 @@ class Game extends React.Component {
 
   render() {
     let smileButton;
-    if (this.state.gameOver && this.state.squaresRemaining === 0){
+    if (this.state.gameOver && this.state.squaresRemaining === 0 && !this.state.loss){
       smileButton = "smiley victory";
     } else if (this.state.gameOver) {
       smileButton = "smiley loss";
@@ -503,7 +515,7 @@ class Game extends React.Component {
           <div className = "game-board">
             <Board
             	squares = {this.state.squares}
-            	onClick = {(i) =>  this.handleClick(i,true)}
+            	onClick = {(i) =>  this.handleClick(i)}
               onContextMenu = {(event, i) => this.handleContextMenu(event, i)}
               height = {this.state.height}
               width = {this.state.width}
@@ -516,7 +528,7 @@ class Game extends React.Component {
               className="solve"/>
           </div>
           <p>
-            {this.state.squaresRemaining === 0 ? "Great Job!!" : 
+            {this.state.squaresRemaining === 0 && !this.state.loss ? "Great Job!!" : 
               (this.state.gameOver ? "You Lose :(" : "Mines Remaining: " + this.state.minesRemaining)}
           </p>
         </div>
