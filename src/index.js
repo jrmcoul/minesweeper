@@ -2,6 +2,14 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 
+function isEmpty(obj) {
+  for(let key in obj) {
+      if(obj.hasOwnProperty(key))
+          return false;
+  }
+  return true;
+}
+
 function SelectDifficulty(props) {
   return (
     <select onChange={props.onChange} className={props.className}>
@@ -26,16 +34,16 @@ function SolveButton(props) {
 
 function Square(props) {
 
-    return (
-      <button
-        value = {props.value}
-        className={props.className}
-        onClick={props.onClick}
-        onContextMenu={(event) => props.onContextMenu(event)}
-      >
-        {props.value}
-      </button>
-    );
+  return (
+    <button
+      value = {props.value}
+      className={props.className}
+      onClick={props.onClick}
+      onContextMenu={(event) => props.onContextMenu(event)}
+    >
+      {props.value}
+    </button>
+  );
 
 }
 
@@ -98,12 +106,16 @@ class Game extends React.Component {
       loss: false,
     };
 
+    // this.squareRef = [];
+    // for(i = 0; i < this.state.heightReact.createRef();
+
     this.convert1Dto2D = this.convert1Dto2D.bind(this);
     this.convert2Dto1D = this.convert2Dto1D.bind(this);
     this.startTimer = this.startTimer.bind(this);
     this.stoptimer = this.stopTimer.bind(this);
     this.handleClick = this.handleClick.bind(this);
     this.handleContextMenu = this.handleContextMenu.bind(this);
+    this.placeFlag = this.placeFlag.bind(this);
     this.handleDifficultyChange = this.handleDifficultyChange.bind(this);
     this.handleNewGameClick = this.handleNewGameClick.bind(this);
 	  this.initializeBoard = this.initializeBoard.bind(this);
@@ -115,6 +127,12 @@ class Game extends React.Component {
     this.winLoss = this.winLoss.bind(this);
     this.isBorder = this.isBorder.bind(this);
     this.findBorder = this.findBorder.bind(this);
+    this.handleSolveClick = this.handleSolveClick.bind(this);
+    this.calculateProbabilities = this.calculateProbabilities.bind(this);
+    this.easySolve = this.easySolve.bind(this);
+    this.calculateLinks = this.calculateLinks.bind(this);
+    this.linkSolve = this.linkSolve.bind(this);
+    this.borderingUnrevealed = this.borderingUnrevealed.bind(this);
   }
 
   convert1Dto2D(index){
@@ -160,11 +178,12 @@ class Game extends React.Component {
       this.startTimer();
     }
 
+    const totalSquares = this.state.height*this.state.width - this.state.numMines;
+
     // If clicked square is unrevealed 
     if(squares[indices[0]][indices[1]].className === "square") {
 
-      squares[indices[0]][indices[1]].className = "square revealed";
-      const totalSquares = this.state.height*this.state.width - this.state.numMines;
+      squares[indices[0]][indices[1]].className = "square revealed";  
       move += 1;
 
       if(squares[indices[0]][indices[1]].value === null) {
@@ -173,52 +192,41 @@ class Game extends React.Component {
         squares = tempObj.squares;
       }
 
-      this.setState({
-        move: move,
-        squares: squares,
-        squaresRemaining: totalSquares - move,
-      }, () => {
-
-        this.winLoss();
-        let borderSquares = this.findBorder();
-        this.setState({
-          border: borderSquares,
-        });
-
-      });
-
     }
+
     // If user clicks on revealed square that is surrounded by square.value flags
     else if(squares[indices[0]][indices[1]].className === "square revealed" && 
       squares[indices[0]][indices[1]].value !== null && 
       squares[indices[0]][indices[1]].value === this.checkSurrounding(indices[0],indices[1],true)){
 
-      const totalSquares = this.state.height*this.state.width - this.state.numMines;
       const tempObj = this.clearSurrounding(indices[0], indices[1], squares, move);
-
       move = tempObj.move;
       squares = tempObj.squares;
 
+    }
+
+    this.setState({
+      move: move,
+      squares: squares,
+      squaresRemaining: totalSquares - move,
+    }, () => {
+
+      this.winLoss();
+      let borderSquares = this.findBorder();
       this.setState({
-        move: move,
-        squares: squares,
-        squaresRemaining: totalSquares - move,
-      }, () => {
-
-        this.winLoss();
-        let borderSquares = this.findBorder();
-        this.setState({
-          border: borderSquares,
-        });
-
+        border: borderSquares,
       });
 
-    }
+    });
 
   }
 
   handleContextMenu(event, i) {
     event.preventDefault();
+    this.placeFlag(i);
+  }
+
+  placeFlag(i) {
     const indices = this.convert1Dto2D(i);
     const squares = this.state.squares.slice();
     let minesRemaining = this.state.minesRemaining
@@ -299,6 +307,7 @@ class Game extends React.Component {
           value: null,
           flagged: false,
           prob: null,
+          link: {},
         }
       }
     }
@@ -455,16 +464,12 @@ class Game extends React.Component {
 
   isBorder(row,col) {
     const squares = this.state.squares.slice();
-    // if(squares[row][col].className !== "square revealed") {
-    //   return false;
-    // }
-    // console.log(squares);
     for(let i = row - 1; i <=  row + 1; i++) {
       for(let j = col - 1; j <= col + 1; j++) {
         if(i >= 0 && i < this.state.height &&
           j >= 0 && j < this.state.width &&
           !(i === row && j === col)){
-          // console.log('hello');
+
           if(!squares[i][j].flagged && squares[i][j].className === "square") {
             return true;
           }
@@ -489,8 +494,200 @@ class Game extends React.Component {
   }
 
   handleSolveClick() {
+    // this.squareRef.current.contextMenu(1);
+    this.calculateProbabilities();
+    // let squares = this.calculateLinks();
+    // console.log(squares);
+    // this.linkSolve(squares);
+  }
+
+  calculateProbabilities() {
+    if(this.state.gameOver){
+      return;
+    } 
+
+    const totalSquares = this.state.height*this.state.width - this.state.numMines;
+    const squares = this.state.squares.slice();
+    const border = this.state.border.slice();
+    let result;
+
+    // Guessing if there are no border cells
+    if(border.length === 0) {
+      let guess = this.convert1Dto2D(Math.floor(this.state.height * this.state.width * Math.random()));
+      while(squares[guess[0]][guess[1]].className === "square revealed" || squares[guess[0]][guess[1]].flagged) {
+        guess = this.convert1Dto2D(Math.floor(this.state.height * this.state.width * Math.random()));
+      }
+      this.handleClick(this.convert2Dto1D(guess));
+      return
+    }
+
+    // Iterating through the border and computing the easySolve method on each border square
+    for(let i = 0; i < border.length; i++) {
+      result = this.easySolve(border[i]);
+      if (result === "click" || result === "flag") {
+        return;
+      }
+    }
+
+    const linkSquares = this.calculateLinks();
+    this.linkSolve(linkSquares);
 
   }
+
+  // This enacts the easiest method for revealing or flagging a square:
+  // finding where the bordering unrevealed squares === the inspected square's value
+  // or where the bordering flags === the inspected square's value, revealing
+  // or flagging the matching border square respectively.
+  easySolve(indices) {
+    const squares = this.state.squares.slice();
+    let unrevealed = 0;
+    let flags = 0;
+    let unrevealedArr = [];
+    for(let i = indices[0] - 1; i <=  indices[0] + 1; i++) {
+      for(let j = indices[1] - 1; j <= indices[1] + 1; j++) {
+        if(i >= 0 && i < this.state.height &&
+          j >= 0 && j < this.state.width &&
+          !(i === indices[0] && j === indices[1])){
+
+          if(squares[i][j].flagged) {
+            flags += 1;
+          }
+          
+          else if(!squares[i][j].flagged && squares[i][j].className === "square") {
+            unrevealed += 1;
+            unrevealedArr.push([i,j]);
+          }
+       
+        }
+      }
+    }
+
+    if(flags === squares[indices[0]][indices[1]].value) {
+      this.handleClick(this.convert2Dto1D(indices));
+      return "click";
+    } else if(unrevealed === squares[indices[0]][indices[1]].value - flags) {
+      this.placeFlag(this.convert2Dto1D(unrevealedArr[0]));
+      return "flag";
+    } else {
+      return "none";
+    }
+
+    // for(let sq = 0; sq < unrevealedArr.length; sq++){
+
+        //squares[unrevealedArr[sq][0]][unrevealedArr[sq][1]].link
+    // }
+    // return unrevealed;
+
+  }
+
+  calculateLinks() {
+    const squares = this.state.squares.slice();
+    const border = this.state.border.slice();
+    let indices, unrevealed, flags, unrevealedArr, row, col;
+
+    for(let borderInd = 0; borderInd < border.length; borderInd++) {
+
+      indices = border[borderInd];
+      unrevealed = 0;
+      flags = 0;
+      unrevealedArr = [];
+
+      for(let i = indices[0] - 1; i <=  indices[0] + 1; i++) {
+        for(let j = indices[1] - 1; j <= indices[1] + 1; j++) {
+          if(i >= 0 && i < this.state.height &&
+            j >= 0 && j < this.state.width &&
+            !(i === indices[0] && j === indices[1])){
+
+            if(squares[i][j].flagged) {
+              flags += 1;
+            }
+            
+            else if(!squares[i][j].flagged && squares[i][j].className === "square") {
+              unrevealed += 1;
+              unrevealedArr.push([i,j]);
+            }
+         
+          }
+        }
+      }
+
+      for(let unrevealedInd = 0; unrevealedInd < unrevealedArr.length; unrevealedInd++){
+        row = unrevealedArr[unrevealedInd][0];
+        col = unrevealedArr[unrevealedInd][1];
+        squares[row][col].link[this.convert2Dto1D([indices[0],indices[1]])] = 
+          [squares[indices[0]][indices[1]].value - flags, unrevealed];
+        // console.log(row + " " + col);
+        // console.log(squares[row][col]);
+      }
+
+    }
+
+    return squares;
+
+  }
+
+  linkSolve(squares) {
+    let unrevealedArr = [];   
+    for(let i = 0; i < this.state.height; i ++) {
+      for(let j = 0; j < this.state.width; j++) {
+        if(!isEmpty(squares[i][j].link)) {
+          unrevealedArr.push([i,j]);
+        }
+      }
+    }
+
+    let row, col, borderingKey, borderingAnotherKey, borderingOnlyKey;
+    for(let sq = 0; sq < unrevealedArr.length; sq++) {
+      row = unrevealedArr[sq][0];
+      col = unrevealedArr[sq][1];
+      for(let key in squares[row][col].link) {
+        for(let anotherKey in squares[row][col].link) {
+          if(squares[row][col].link[key][0] > squares[row][col].link[anotherKey][0]) {
+            borderingKey = this.borderingUnrevealed(this.convert1Dto2D(parseInt(key,10)));
+            borderingAnotherKey = this.borderingUnrevealed(this.convert1Dto2D(parseInt(anotherKey,10)));
+            borderingOnlyKey = [];
+
+            for(let index = 0; index < borderingKey.length; index++) {
+              if(!borderingAnotherKey.some((element) => {return element === borderingKey[index]})) {
+                borderingOnlyKey.push(borderingKey[index]);
+              }
+            }
+
+            if(squares[row][col].link[key][0] - borderingOnlyKey.length === squares[row][col].link[anotherKey][0]) {
+              this.placeFlag(borderingOnlyKey[0]);
+              console.log(borderingOnlyKey[0]);
+              return "flag";
+            }
+          }
+
+        }
+      }
+    }
+
+    return "none"
+    // console.log(unrevealedArr);
+  }
+
+  borderingUnrevealed(indices) {
+    const squares = this.state.squares.slice();
+    let resultArr = [];
+    for(let i = indices[0] - 1; i <=  indices[0] + 1; i++) {
+      for(let j = indices[1] - 1; j <= indices[1] + 1; j++) {
+        if(i >= 0 && i < this.state.height &&
+          j >= 0 && j < this.state.width &&
+          !(i === indices[0] && j === indices[1])){
+
+          if(!squares[i][j].flagged && squares[i][j].className === "square") {
+            resultArr.push(this.convert2Dto1D([i,j]));
+          }
+          
+        }
+      }
+    }
+    return resultArr;
+  }
+
+
 
   render() {
     let smileButton;
