@@ -1,6 +1,49 @@
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
-## Available Scripts
+# Minesweeper
+
+## Project source can be downloaded from https://github.com/jrmcoul/minesweeper
+
+## Author: Jeffrey March
+
+## File List:
+
+```
+./src
+
+.gitignore
+
+README.md
+
+package-lock.json
+
+package.json
+```
+
+```
+./src:
+
+index.css
+
+index.js
+
+```
+
+## How to clone and run app:
+
+Navigate to your own base
+```
+git clone https://github.com/jrmcoul/minesweeper
+cd minesweeper
+npm install
+npm start
+```
+* In terminal, type ```npx create-react-app```
+
+## Still to do:
+
+1. Implement final (edge case) solver technique
+2. Implent probability calculator for making the "best guess" in the solver
 
 In the project directory, you can run:
 
