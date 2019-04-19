@@ -33,7 +33,7 @@ index.js
 
 ## How to clone and run app:
 
-Navigate to your own base folder, and in terminal type:
+Navigate to your base folder, and in terminal type:
 
 ```
 git clone https://github.com/jrmcoul/minesweeper.git
@@ -64,7 +64,7 @@ The first order solving algorithm is to search the "border" revealed squares and
 If so, it flags all neighboring unrevealed squares.
 If the number of neighboring flagged squares equals the value of the border square, it reveals all neighboring unrevealed squares.
 
-The second order solving algorithm is more complicated and involves labeling all the unrevealed squares that border the revealed "border" squares based on "links."
+The second order solving algorithm is more complicated and involves labeling all the unrevealed squares that neighbor the revealed "border" squares based on "links."
 In each link object, a key is the 1D index of the revealed "border" square, while the value is an array: [number of neighboring mines remaining, number of neighboring unrevealed squares].
 For more information on this method, read the comments surrounding calculateLinks() and linkSolve() in the Game component.
 
