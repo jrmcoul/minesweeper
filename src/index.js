@@ -1,7 +1,7 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import './index.css';
-
+import React from 'react'
+import ReactDOM from 'react-dom'
+import Board from './Board'
+import './index.css'
 
 // Helper function to compute whether an object is empty
 function isEmpty(obj) {
@@ -36,55 +36,6 @@ function SolveButton(props) {
   return (
     <button onClick={props.onClick} className ={props.className}>Next Move</button>
   )
-}
-
-
-// Creates a single square, with className providing css for appearance
-function Square(props) {
-  return (
-    <button
-      value = {props.value}
-      className={props.className}
-      onClick={props.onClick}
-      onContextMenu={(event) => props.onContextMenu(event)}
-    >
-      {props.value}
-    </button>
-  );
-}
-
-
-// Creates a board, comprised of a 2D array of Square elements
-class Board extends React.Component {
-
-  renderSquare(i) {
-    const indices = this.props.convert1Dto2D(i);
-    return (
-    	<Square
-        key={indices}
-    	  value={this.props.squares[indices[0]][indices[1]].value}
-    	  onClick={() => this.props.onClick(i)}
-        onContextMenu={(event) => this.props.onContextMenu(event,i)}
-        className={this.props.squares[indices[0]][indices[1]].className}
-    	/>);
-  }
-
-  render() {
-    let table = [];
-    for(let i = 0; i < this.props.height; i++) {
-      let children = [];
-      for(let j = 0; j < this.props.width; j++) {
-        children.push(this.renderSquare(this.props.width*i + j))
-      }
-      table.push(<div key={"row" + i} className="board-row">{children}</div>)
-    }
-    return (
-      <div>
-        {table}
-      </div>
-    );
-  }
-
 }
 
 // Main Game class, which contains the button, board and square elements. Maintains game state.
@@ -348,21 +299,13 @@ class Game extends React.Component {
   // "Lucky click" is instituted, meaning that the first click will always be
   // a blank square
   randomizeMines(height, width, firstClick) {
-    let arr = [];
-    let iClick = firstClick[0];
-    let jClick = firstClick[1];
+    let arr = []
+    let iClick = firstClick[0]
+    let jClick = firstClick[1]
     for(let i = 0; i < height; i++) {
       for(let j = 0; j < width; j++) {
-        if(!(i === iClick - 1 && j === jClick - 1) &&
-          !(i === iClick - 1 && j === jClick) &&
-          !(i === iClick - 1 && j === jClick + 1) &&
-          !(i === iClick && j === jClick - 1) &&
-          !(i === iClick && j === jClick) &&
-          !(i === iClick && j === jClick + 1) &&
-          !(i === iClick + 1 && j === jClick - 1) &&
-          !(i === iClick + 1 && j === jClick) &&
-          !(i === iClick + 1 && j === jClick + 1)){
-          arr.push([i,j]);
+        if(Math.abs(i - iClick) > 1 && Math.abs(j - jClick) > 1){
+          arr.push([i,j])
         }
       } 
     }
@@ -378,20 +321,20 @@ class Game extends React.Component {
   // numbered squares placed
   setBoard(arr, squares){
     for(let ind = 0; ind < arr.length; ind++) {
-      squares[arr[ind][0]][arr[ind][1]].value = 'M';
+      squares[arr[ind][0]][arr[ind][1]].value = 'M'
     }
     for(let i = 0; i < this.state.height; i++) {
       for(let j = 0; j < this.state.width; j++) {
         if(squares[i][j].value !== 'M') {
-          squares[i][j].value = this.checkSurrounding(i,j,squares,false);
+          squares[i][j].value = this.checkSurrounding(i,j,squares,false)
           if(squares[i][j].value === 0) {
-            squares[i][j].value = null;
+            squares[i][j].value = null
           }
         }        
       }
     }
 
-    return squares;
+    return squares
   }
 
   // Checks each suqare for either:
